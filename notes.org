@@ -34,7 +34,122 @@ a JSON representation of GAM.
 - sample graph - a variation graph with variations from one or more
   samples
 
+
 * GFA
 
-Since, as noted above, GFA is the lingua franca of VG implementations,
-it appears to be a good starting place.
+Since, as noted above, GFA is a common language for describing graphs,
+across VG implementations, it appears to be a good starting place.
+There are many more GFA1 implementations than GFA2, but while the GFA2
+spec is still considered a proposal, it hasn't changed much in the
+past three years (according to its git history). As GFA2 is a superset
+of GFA1, it's reasonable to start with a look at GFA1, before moving
+on to the newer version. First, however, an overview of why and how
+GFA came to be.
+
+The specs are available on github:
+- [[https://github.com/GFA-spec/GFA-spec/blob/master/GFA1.md][GFA1 spec]]
+- [[https://github.com/GFA-spec/GFA-spec/blob/master/GFA2.md][GFA2 spec]]
+
+** Background
+GFA was developed by Heng Li, and first described in a couple of blog posts:
+- https://lh3.github.io/2014/07/19/a-proposal-of-the-grapical-fragment-assembly-format
+- https://lh3.github.io/2014/07/23/first-update-on-gfa
+
+As the name suggests, GFA is intended to represent assembly graphs, or
+sequence graphs where the nodes are sequences, and the edges are
+overlaps between sequences. These graphs are *bidirected*, meaning not
+only do edges have direction, but each *end* of an edge has its own
+direction. In a bidirected graph, there are three kinds of edges, by
+direction -- both ends point out, both ends point in, or one of the
+ends points out and the other in. In the context of sequence graphs,
+this bidirectionality stems from the orientation of sequences.
+
+GFA represents these bidirected graphs as links between segments,
+where each link points from the *end* of one segment to the
+*beginning* of the other segment, and has an orientation for each of
+the segments. Each link also stores how many basepairs of the two
+segments overlap.
+
+** GFA1
+GFA is a tab-delimited format, where each line describes one piece of
+data. The first field of each line denotes the type of data the line
+contains, and in turn the fields that the rest of the line contains.
+The required fields follow the type of the line, and optional fields
+follow the required fields.
+
+Path and segment records have unique names, and share a namespace.
+A name is a printable ASCII string not including whitespace, the
+substrings ~+,~ or ~-,~, and cannot start with ~*~ or ~=~.
+
+*** Optional fields
+Optional fields have the format ~TAG:TYPE:VALUE~, where ~TAG~ is
+a 2-char string matching the regex ~/[A-Za-z][A-Za-z0-9]/~, i.e.
+an alphabetic char followed by an alphanumeric char. Each tag
+can only appear once in a given line, and tags with lowercase
+letters are reserved for end users. The ~TYPE~ is one of the
+characters in the table below, and define what ~VALUE~ can be.
+See the GFA1 spec for the regex for each type.
+
+| Type  | Description                    |
+|-------+--------------------------------|
+| A     | Printable char                 |
+| i     | Signed int                     |
+| f     | Single-precision float         |
+| Z     | Printable string               |
+| J     | JSON excluding newline and tab |
+| H     | Hex-formatted byte array       |
+| B     | Array of ints or floats        |
+
+*** Line types
+
+| Type | Description |
+|------+-------------|
+| #    | Comment     |
+| H    | Header      |
+| S    | Segment     |
+| L    | Link        |
+| C    | Containment |
+| P    | Path        |
+
+**** Comments
+Lines starting with # are ignored
+
+**** Header line
+The header line has no required fields, and only one optional field,
+VN:Z, which is a version number (of the data, presumably). The spec
+doesn't say anything about whether a header line is required, or
+whether there can be more than one, but presumably there ought to be
+one, and only one, per .gfa file.
+
+**** Segment
+Segment lines describe the segments in the graph, i.e. the nodes.
+Each segment has a required name, and a nucleotide sequence; however
+the sequence can be set to ~*~, which says that the sequence is not
+specified in the GFA file. The sequence can be stored in a FASTA
+file, in which case a URI or path to the file is given in the optional
+field UR:Z.
+
+It's not clear to me, if the sequence is in an external file, how
+the sequence is located in the file. Is it assumed that the segment
+name is the sequence ID in the file? Doesn't really matter now.
+
+**** Link
+Links describe connections between segments; segments are oriented, so
+each link contains not only the identifiers of the From- and
+To-segments, but the orientation of them. The overlap of the two
+segments is also specified, as a CIGAR string. If the overlap is ~*~,
+it is treated as unspecified, and an overlap of ~0M~ means the 2nd
+segment follows immediately after the 1st.
+
+**** Containment
+A containment represents an overlap between two segments where one
+segment is completely contained in the other. It contains essentially
+the same information as a link, with the addition of the index where
+the contained segment begins in the container.
+
+**** Path
+A path describes a genome in the graph, as a list of segments and
+their orientation.
+
+
+** GFA2
