@@ -1,0 +1,40 @@
+* File formats
+While the main format used by the *tool* ~vg~ is a protobuf schema,
+serialized to file and stored in ~.vg~ files, there's nothing special
+about that format, and there are other formats used to represent
+variation graphs.
+
+A good entry is GFA, Graphical Fragment Assembly, as it is used as a
+sort of lingua franca across VG implementations. The proposed 2nd
+version of the standard, GFA2, is intended to support expressing an
+assembly graph in a range of levels of detail, from just the graph
+topology down to the aligned reads that induce each sequence. This is
+in addition to supporting variation graphs in general (and some other
+facets, omitted here).
+
+Another important format is ~.xg~, which is a graph index format. It
+contains the structure of a variation graph, and the paths that define
+the graph, but not its sequences. This allows for faster and cheaper
+graph operations, such as retrieving the distance between a pair of
+nodes, finding adjacent nodes, or the degree of a node.
+
+GAM, Graph Alignment Map, is the VG version of BAM, and contains the
+information necessary to know where a sequence (e.g. a read) is mapped
+to in the graph. Like ~.vg~ files, ~.gam~ contain a binary and compressed
+representation that can be viewed by ~vg view~. However, there is also
+a JSON representation of GAM.
+
+** Some terminology
+
+- reference graph - a graph containing a reference genome and
+  variation in terms of that ref genome
+- flat graph - a graph containing only a reference genome
+- augmented graph - a graph with reads mapped to it, and the paths
+  induced by those reads inserted into the graph
+- sample graph - a variation graph with variations from one or more
+  samples
+
+* GFA
+
+Since, as noted above, GFA is the lingua franca of VG implementations,
+it appears to be a good starting place.
