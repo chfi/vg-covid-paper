@@ -5,12 +5,13 @@ about that format, and there are other formats used to represent
 variation graphs.
 
 A good entry is GFA, Graphical Fragment Assembly, as it is used as a
-sort of lingua franca across VG implementations. The proposed 2nd
-version of the standard, GFA2, is intended to support expressing an
-assembly graph in a range of levels of detail, from just the graph
-topology down to the aligned reads that induce each sequence. This is
-in addition to supporting variation graphs in general (and some other
-facets, omitted here).
+sort of lingua franca across VG implementations, and the ~.vg~ format
+is equivalent to a subset of GFA1. The proposed 2nd version of the
+standard, GFA2, is intended to support expressing an assembly graph in
+a range of levels of detail, from just the graph topology down to the
+aligned reads that induce each sequence. This is in addition to
+supporting variation graphs in general (and some other facets, omitted
+here). However, GFA1
 
 Another important format is ~.xg~, which is a graph index format. It
 contains the structure of a variation graph, and the paths that define
@@ -41,14 +42,13 @@ Since, as noted above, GFA is a common language for describing graphs,
 across VG implementations, it appears to be a good starting place.
 There are many more GFA1 implementations than GFA2, but while the GFA2
 spec is still considered a proposal, it hasn't changed much in the
-past three years (according to its git history). As GFA2 is a superset
-of GFA1, it's reasonable to start with a look at GFA1, before moving
-on to the newer version. First, however, an overview of why and how
-GFA came to be.
+past three years (according to its git history).
 
-The specs are available on github:
+The specs are available on github, but I'll be focusing on GFA1:
+
 - [[https://github.com/GFA-spec/GFA-spec/blob/master/GFA1.md][GFA1 spec]]
 - [[https://github.com/GFA-spec/GFA-spec/blob/master/GFA2.md][GFA2 spec]]
+- also useful: https://github.com/lh3/gfatools/blob/master/doc/rGFA.md
 
 ** Background
 GFA was developed by Heng Li, and first described in a couple of blog posts:
@@ -151,5 +151,88 @@ the contained segment begins in the container.
 A path describes a genome in the graph, as a list of segments and
 their orientation.
 
+* Handlegraph
 
-** GFA2
+https://pangenome.github.io/handlegraph/index.html
+
+The idea of the Handle Graph abstraction is to represent the graph in
+such a way that their basic elements are easily, precisely, and
+efficiently addressable. Since these graphs are bidirected, it's not
+enough to have a reference to just a node containing a sequence, you
+also need a direction - a "handle" is a reference to a single strand,
+or direction, of a node. In a way, semantically, a node is a pair of
+complementary handles.
+
+| C++ name      | type       | description                                                                                     |
+|---------------+------------+-------------------------------------------------------------------------------------------------|
+| handle_t      | 64-bit ID  | an oriented traversal of a node                                                                 |
+| id_t          | u64        | a node identifier                                                                               |
+| edge_t        | handle_t^2 | a pair of handle_ts, where the edge is directed from the first member of the pair to the second |
+| path_handle_t | 64-bit ID  | a reference to a path                                                                           |
+| step_handle_t | 128-bit ID | a reference to a single step of a path on one node traversal                                    |
+
+These types are opaque, in the sense that their internal
+representation as 64-bit types do not directly correspond to any
+external identifiers from the data used to construct the graph.
+
+** HashGraph
+[2020-04-05 Sun 16:40]
+
+These are some notes to aid my understanding in the HashGraph
+implementation of the HandleGraph, as part of my Rust implementation
+of the same. Most camel cased names are C++ classes from libbdsg
+and libhandlegraph.
+
+HashGraph is a MutablePathDeletableHandleGraph, and a
+SerializableHandleGraph. The former denotes a graph that's both a
+MutablePathMutableHandleGraph, and a DeletableHandleGraph; the former
+of those again is a MutablePathHandleGraph and a MutableHandleGraph.
+
+MutableHandleGraph extends HandleGraph, MutablePathHandleGraph extends
+PathHandleGraph. PathHandleGraph extends HandleGraph.
+
+That's a lot of words, but in reality the relationship is relatively
+simple despite multiple inheritance.
+
+The base class is HandleGraph (henceforth HG); HG on its own doesn't
+store paths. PathHG extends HG with support for embedding paths.
+
+MutablePathHG extends PathHG with methods for creating, destroying,
+and modifying the paths embedded in the graph.
+
+MutableHG extends HG with methods for creating handles and edges in
+the graph, as well as other stuff like modifying node orientation,
+splitting handles, optimizing the graph and reordering the internal
+structure, and modifying node IDs.
+
+DeletableHG adds destructive methods on top of MutableHG, allowing
+destruction of handles and edges, and removing all nodes and edges
+in the graph.
+
+MutablePathMutableHG doesn't add any methods, and simply implies that
+both the embedded paths and the graph are mutated, along with stricter
+semantics on a few methods so that the product makes sense.
+
+Likewise, MutablePathDeletableHG adds no methods, but is the product
+of MutablePathMutableHG and DeletableHG. The added semantics is that
+clearing the graph also deletes all paths.
+
+** Rust implementation notes
+
+It looks like it'll be far from straightforward to write a library
+that can easily slot into the libhandlegraph API, as libhandlegraph
+relies on C++ features in the interface. Rust's bindgen can generate
+bindings for C++ features, though it's apparently considerably clunky.
+However I'm not sure in what way that applies to writing a library
+that fulfills a C++ API from Rust.
+
+One way to do it might be to have a C API or wrapper for
+libhandlegraph, though I don't know enough about these things to say
+what that would look like, how much work it'd be, or if it's even
+viable.
+
+Some resources:
+- https://hsivonen.fi/modern-cpp-in-rust/
+- https://github.com/crackcomm/rust-lang-interop
+- https://rust-lang.github.io/rust-bindgen/cpp.html
+- https://crates.io/crates/cpp
