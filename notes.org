@@ -219,6 +219,9 @@ clearing the graph also deletes all paths.
 
 ** Rust implementation notes
 
+
+
+*** C++
 It looks like it'll be far from straightforward to write a library
 that can easily slot into the libhandlegraph API, as libhandlegraph
 relies on C++ features in the interface. Rust's bindgen can generate
@@ -229,10 +232,38 @@ that fulfills a C++ API from Rust.
 One way to do it might be to have a C API or wrapper for
 libhandlegraph, though I don't know enough about these things to say
 what that would look like, how much work it'd be, or if it's even
-viable.
+viable. [update 4/6/20 - the Rust implementation will exist in parallel
+to the C++ ecosystem; interop is a future problem if we ever decide
+on it being worthwhile]
 
 Some resources:
 - https://hsivonen.fi/modern-cpp-in-rust/
 - https://github.com/crackcomm/rust-lang-interop
 - https://rust-lang.github.io/rust-bindgen/cpp.html
 - https://crates.io/crates/cpp
+
+*** Rust HandleGraph & HashGraph
+
+As this won't be slotting into the C++ ecosystem, I don't have to
+stick directly to the HandleGraph API, however I'll start with a more
+or less one-to-one mapping from the C++ implementation. Once I have a
+functional base, I can move bits and pieces over into more idiomatic
+Rust as appropriate.
+
+One interesting factor which makes things easier (it might come back
+to bite me in the future, but I don't think it will) is that most of
+the types, such as the node IDs and handles, are represented as
+newtypes over u64. Since u64 is Copy, we can derive Copy for these
+types, i.e. since these types take up the same space as a pointer,
+there's no performance loss in copying one of these values to where
+it's used vs using a reference to it. As long as you're not mutating
+a given value, you don't have to worry about moving vs borrowing it.
+
+So far there's not much to say about the implementation. I'm using
+the Rust stdlib HashMap as a basis, and letting rustc derive the hash
+trait for the types as needed; if necessary, they can be customized
+later. I've been moving some methods from the HandleGraph trait
+to the Handle type where it makes sense, and I'll likely simplify
+the interface further. I've implemented functions for creating
+handles and edges, and they're essentially line-by-line translations
+from the C++ version.
