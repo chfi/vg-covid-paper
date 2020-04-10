@@ -267,3 +267,39 @@ to the Handle type where it makes sense, and I'll likely simplify
 the interface further. I've implemented functions for creating
 handles and edges, and they're essentially line-by-line translations
 from the C++ version.
+
+*** Paths
+
+The C++ implementation of HashGraph represents paths in the graph
+as linked lists. Each path has an ID, and each path has a head
+and a tail, both of which are type path_mapping_t.
+
+Each path_mapping_t knows its path ID, the handle it's attached to,
+and pointers to the previous and next path_mapping_t's. In addition,
+each node has a vector of pointers to all path_mapping_t's that are on
+that node. Nodes are undirected, but path mappings are not, as they
+have a handle.
+
+Since there's a lot of pointers going around, this is where Rust can
+get a little tricky, but it should be fairly straightforward if the
+main Path object holds ownership of all the path pieces (which is what
+makes sense, either way). It may be worth thinking about alternative
+representations, though.
+
+Paths are mutable and support pushing nodes (handles) on either side,
+as well as into the middle by providing a pointer to an element (i.e.
+a path_mapping) in the path, and a handle to insert. This is why a
+linked list structure is used.
+
+At first I thought the occurrences vector in each node would end up
+being a problem, but it might not be. Since the occurrences vector in
+each graph node holds pointers to all the different paths that the
+node is a part of, we must have that all path nodes, and thus all
+paths, that touch a given node, must be a owned by the graph that node
+is a part of. (This is because the ~occurrences~ field in the ~Node~
+struct is type ~Vec<&PathMapping>~; reference types are derived from
+both the type referred to and the owning lifetime).
+
+In hindsight that's obvious, but it's a neat example of Rust's
+ownership model lighting a path without the programmer even having to
+write a single line of code.
